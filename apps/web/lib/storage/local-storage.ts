@@ -14,10 +14,21 @@ export class LocalFileStorage {
     }
   }
 
+  /**
+   * Sanitize filename for local storage (similar to Supabase sanitization)
+   */
+  private sanitizeFilename(filename: string): string {
+    return filename
+      .toLowerCase()
+      .replace(/\s+/g, '-') // spaces → dashes
+      .replace(/[^a-z0-9.-]/g, ''); // remove unsafe chars
+  }
+
   async uploadFile(file: File): Promise<{ url: string; path: string }> {
     await this.ensureUploadDir();
     
-    const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const safeName = this.sanitizeFilename(file.name);
+    const fileName = `${Date.now()}-${safeName}`;
     const filePath = join(UPLOAD_DIR, fileName);
     
     const arrayBuffer = await file.arrayBuffer();

@@ -9,6 +9,17 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { LocalFileStorage } from '@/lib/storage/local-storage';
 
 /**
+ * Sanitize filename for Supabase Storage
+ * Removes spaces and unsafe characters that Supabase doesn't allow in object keys
+ */
+function sanitizeFilename(filename: string): string {
+  return filename
+    .toLowerCase()
+    .replace(/\s+/g, '-') // spaces → dashes
+    .replace(/[^a-z0-9.-]/g, ''); // remove unsafe chars
+}
+
+/**
  * POST /api/labels/upload
  * Upload and parse a label image
  */
@@ -43,7 +54,9 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      const fileName = `${Date.now()}-${file.name}`;
+      // Sanitize filename to prevent Supabase Storage key errors
+      const safeName = sanitizeFilename(file.name);
+      const fileName = `${Date.now()}-${safeName}`;
       const bucket = 'label-images';
 
       // Convert File to Buffer
@@ -71,9 +84,19 @@ export async function POST(request: NextRequest) {
         throw new Error(`Failed to upload image: ${uploadError.message}`);
       }
 
-      // Get public URL
-      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
-      imageUrl = urlData.publicUrl;
+      // Get signed URL for private bucket (valid for 1 hour)
+      // Note: For private buckets, we need signed URLs instead of public URLs
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(fileName, 3600); // 1 hour expiry
+      
+      if (signedUrlError || !signedUrlData) {
+        // Fallback: if signed URL fails, use the object path
+        // The OCR service will need to handle this, or we can retry with public URL
+        throw new Error(`Failed to create signed URL: ${signedUrlError?.message || 'Unknown error'}`);
+      }
+      
+      imageUrl = signedUrlData.signedUrl;
     } else {
       // Use local file storage for development
       const localStorage = new LocalFileStorage();
