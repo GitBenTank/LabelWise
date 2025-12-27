@@ -7,6 +7,7 @@ import type {
   Evidence,
   Concern,
   Product,
+  ExternalProduct,
 } from '@labelwise/shared';
 import { ScoringService, type ScoringContext } from '../scoring';
 import type { IngredientService } from '../ingredients';
@@ -45,21 +46,23 @@ export class ReportService {
   async generateReport(context: ReportContext): Promise<LabelWiseReport> {
     // Normalize ingredients
     const ingredients = context.labelData?.ingredients || [];
-    const normalized = await this.ingredientService.normalizeIngredients(
-      context.externalProduct || {
-        barcode: context.product.barcode,
-        name: context.product.name,
-        brand: context.product.brand,
-        categories: context.product.categories,
-        ingredientsText: context.externalProduct?.ingredientsText || null,
-        ingredientsTags: context.externalProduct?.ingredientsTags || [],
-        nutrition: context.externalProduct?.nutrition || {},
-        imageUrl: null,
-        source: context.product.source,
-        sourceUrl: context.product.sourceUrl,
-        rawData: context.externalProduct?.rawData || {},
-      }
-    );
+    const externalProductData = (context.externalProduct || {
+      barcode: context.product.barcode,
+      name: context.product.name,
+      brand: context.product.brand,
+      categories: context.product.categories,
+      ingredientsText: null,
+      ingredientsTags: [],
+      nutrition: context.labelData?.nutrition ? Object.fromEntries(
+        Object.entries(context.labelData.nutrition).map(([k, v]) => [k, v ?? null])
+      ) as Record<string, number | null> : {} as Record<string, number | null>,
+      imageUrl: null,
+      source: context.product.source,
+      sourceUrl: context.product.sourceUrl,
+      rawData: {},
+    }) as ExternalProduct;
+    const normalizedResult = await this.ingredientService.normalizeIngredients(externalProductData);
+    const normalized = normalizedResult.normalized;
 
     // Extract allergens
     const allergens: string[] = [];
@@ -94,7 +97,10 @@ export class ReportService {
       novaGroup,
       nutriScore,
       ingredients,
-      normalizedIngredients: normalized.normalized,
+      normalizedIngredients: normalized.map(n => ({
+        original: n.original,
+        canonicalId: n.canonicalId,
+      })),
       allergens,
       allergenSource,
       profile: context.profile,
@@ -105,7 +111,7 @@ export class ReportService {
 
     // Build ingredient details with concerns
     const ingredientDetails = ingredients.map((ing, idx) => {
-      const normalized = normalized.normalized[idx];
+      const normalizedItem = normalized[idx];
       const concerns: Concern[] = [];
 
       // Check if any rules flagged this ingredient
@@ -122,7 +128,7 @@ export class ReportService {
 
       return {
         name: ing,
-        normalized: normalized?.original || ing,
+        normalized: normalizedItem?.original || ing,
         concerns,
         confidence: 75, // Can be enhanced with OCR confidence
       };

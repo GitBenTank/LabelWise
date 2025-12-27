@@ -1,6 +1,6 @@
 import type { ExternalProduct, Product } from '@labelwise/shared';
 import type { ProductDataSource } from '../adapters/product-data-source';
-import type { ProductRepository } from '../repositories/product-repository';
+import type { ProductRepository } from '@labelwise/shared';
 
 /**
  * Product lookup and caching service

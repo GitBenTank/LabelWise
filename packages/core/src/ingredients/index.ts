@@ -4,7 +4,7 @@
 
 import type { ExternalProduct } from '@labelwise/shared';
 import { extractAndNormalizeIngredients } from './parser';
-import type { IngredientRepository } from '../repositories/ingredient-repository';
+import type { IngredientRepository } from '@labelwise/shared';
 
 /**
  * Ingredient normalization service

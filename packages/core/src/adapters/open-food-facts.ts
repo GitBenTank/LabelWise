@@ -1,4 +1,5 @@
-import type { ProductDataSource, ExternalProduct } from './product-data-source';
+import type { ProductDataSource } from './product-data-source';
+import type { ExternalProduct } from '@labelwise/shared';
 
 interface OFFProductResponse {
   status: number;
@@ -43,7 +44,7 @@ export class OpenFoodFactsClient implements ProductDataSource {
         throw new Error(`Open Food Facts API error: ${response.status}`);
       }
 
-      const data: OFFProductResponse = await response.json();
+      const data = await response.json() as OFFProductResponse;
 
       if (data.status !== 1 || !data.product) {
         return null;
@@ -53,7 +54,7 @@ export class OpenFoodFactsClient implements ProductDataSource {
 
       // Extract nutrition values
       const nutrition: Record<string, number | null> = {};
-      if (product.nutriments) {
+      if (product.nutriments && typeof product.nutriments === 'object') {
         // Map common nutrition fields
         const nutritionFields = [
           'energy-kcal_100g',
@@ -66,7 +67,7 @@ export class OpenFoodFactsClient implements ProductDataSource {
         ];
 
         nutritionFields.forEach((field) => {
-          const value = product.nutriments[field];
+          const value = (product.nutriments as Record<string, unknown>)[field];
           if (value !== undefined) {
             const key = field.replace('_100g', '').replace('-', '_');
             nutrition[key] = typeof value === 'number' ? value : null;

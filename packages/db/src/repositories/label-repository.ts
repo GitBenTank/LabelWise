@@ -1,6 +1,6 @@
 import { db } from '../client';
 import { productLabels } from '../schema/product-labels';
-import type { LabelRepository } from '@labelwise/core';
+import type { LabelRepository } from '@labelwise/shared';
 
 /**
  * Drizzle implementation of LabelRepository

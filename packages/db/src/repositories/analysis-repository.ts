@@ -1,6 +1,6 @@
 import { db } from '../client';
 import { analyses } from '../schema/analyses';
-import type { AnalysisRepository } from '@labelwise/core';
+import type { AnalysisRepository } from '@labelwise/shared';
 
 /**
  * Drizzle implementation of AnalysisRepository
@@ -23,8 +23,20 @@ export class DrizzleAnalysisRepository implements AnalysisRepository {
         profileId: analysis.profileId,
         score: analysis.score,
         summary: analysis.summary,
-        flags: analysis.flags as Array<unknown>,
-        reasons: analysis.reasons as Array<unknown>,
+        flags: analysis.flags as Array<{
+          type: 'allergen' | 'diet' | 'additive' | 'nutrition';
+          severity: 'warning' | 'info' | 'caution';
+          message: string;
+          reason: string;
+          ingredientId?: string;
+          nutritionField?: string;
+        }>,
+        reasons: analysis.reasons as Array<{
+          type: string;
+          description: string;
+          impact: number;
+          confidence: 'high' | 'medium' | 'low';
+        }>,
         confidence: analysis.confidence,
       })
       .returning({ id: analyses.id });

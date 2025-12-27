@@ -29,7 +29,7 @@ export interface ScoringContext {
 /**
  * Generate headline based on score and verdict
  */
-function generateHeadline(score: number, verdict: ReportVerdict): string {
+function generateHeadline(_score: number, verdict: ReportVerdict): string {
   if (verdict === 'good') {
     return 'Mostly fine, with a few things to be aware of';
   } else if (verdict === 'mixed') {
@@ -60,7 +60,7 @@ export class ScoringService {
     });
 
     // Clamp to 0-100
-    score = Math.max(0, Math.min(100, score));
+    const finalScore = Math.max(0, Math.min(100, score)) as number;
 
     // Determine verdict
     let verdict: ReportVerdict;
@@ -82,7 +82,7 @@ export class ScoringService {
     });
 
     return {
-      score,
+      score: finalScore,
       verdict,
       headline,
       ruleResults,

@@ -2,13 +2,11 @@
  * Label OCR and parsing service
  */
 
-import type { ProductLabel } from '@labelwise/shared';
+import type { ProductLabel, LabelRepository } from '@labelwise/shared';
 import { extractAndNormalizeIngredients } from '../ingredients/parser';
-import type { LabelRepository } from '../repositories/label-repository';
 
 export type { OCRService } from './ocr';
 import type { OCRService } from './ocr';
-import type { LabelRepository } from '../repositories/label-repository';
 
 /**
  * Label service for OCR and parsing
@@ -77,13 +75,15 @@ export class LabelService {
 
     // TODO: Extract nutrition facts (more complex, can be enhanced later)
 
-    return {
+    // Return partial ProductLabel (nutrition will be empty for now)
+    const result: Partial<ProductLabel> = {
       rawText: text,
       ingredients,
       allergenStatements: allergenStatements.length > 0 ? allergenStatements : undefined,
       mayContain: mayContain.length > 0 ? mayContain : undefined,
       nutrition: {},
     };
+    return result;
   }
 
   /**
@@ -100,11 +100,18 @@ export class LabelService {
     const parsed = this.parseLabelText(text);
 
     // Store
+    const nutritionRecord: Record<string, number | null> = {};
+    if (parsed.nutrition) {
+      Object.entries(parsed.nutrition).forEach(([key, value]) => {
+        nutritionRecord[key] = value ?? null;
+      });
+    }
+    
     return this.repository.create({
       productId,
       rawText: parsed.rawText || text,
       ingredients: parsed.ingredients || [],
-      nutrition: parsed.nutrition || {},
+      nutrition: nutritionRecord,
       allergenStatements: parsed.allergenStatements || [],
       mayContain: parsed.mayContain || [],
       photoUrl: imageUrl,

@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '../client';
 import { products } from '../schema/products';
 import type { Product } from '@labelwise/shared';
-import type { ProductRepository } from '@labelwise/core';
+import type { ProductRepository } from '@labelwise/shared';
 
 /**
  * Drizzle implementation of ProductRepository

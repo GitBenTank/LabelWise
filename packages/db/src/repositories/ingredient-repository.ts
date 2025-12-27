@@ -2,7 +2,7 @@ import { eq, ilike } from 'drizzle-orm';
 import { db } from '../client';
 import { ingredients } from '../schema/ingredients';
 import { ingredientAliases } from '../schema/ingredient-aliases';
-import type { IngredientRepository } from '@labelwise/core';
+import type { IngredientRepository } from '@labelwise/shared';
 
 /**
  * Drizzle implementation of IngredientRepository
