@@ -16,7 +16,7 @@ import { SaveAnalysisButton } from '@/components/SaveAnalysisButton';
 export default function LabelAnalysisPage() {
   const params = useParams();
   const router = useRouter();
-  const labelId = params.id as string;
+  const labelId = params?.id as string | undefined;
 
   const [report, setReport] = useState<LabelWiseReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,6 +52,9 @@ export default function LabelAnalysisPage() {
 
     if (labelId) {
       loadAnalysis();
+    } else {
+      setError('Label ID is required');
+      setLoading(false);
     }
   }, [labelId]);
 

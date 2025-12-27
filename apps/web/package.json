@@ -10,9 +10,10 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@labelwise/shared": "*",
-    "@labelwise/db": "*",
     "@labelwise/core": "*",
+    "@labelwise/db": "*",
+    "@labelwise/shared": "*",
+    "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.39.3",
     "next": "16.1.1",
     "react": "19.2.3",

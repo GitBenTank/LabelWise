@@ -9,5 +9,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Type assertions for TypeScript (values are checked above)
+const SUPABASE_URL: string = supabaseUrl;
+const SUPABASE_ANON_KEY: string = supabaseAnonKey;
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 

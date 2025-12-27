@@ -15,7 +15,7 @@ import { SaveAnalysisButton } from '@/components/SaveAnalysisButton';
 export default function ProductPage() {
   const params = useParams();
   const router = useRouter();
-  const barcode = params.barcode as string;
+  const barcode = params?.barcode as string | undefined;
 
   const [report, setReport] = useState<LabelWiseReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +41,9 @@ export default function ProductPage() {
 
     if (barcode) {
       loadAnalysis();
+    } else {
+      setError('Barcode is required');
+      setLoading(false);
     }
   }, [barcode]);
 
