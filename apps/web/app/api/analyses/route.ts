@@ -99,7 +99,13 @@ async function resolveProductData(
  */
 export async function POST(request: NextRequest) {
   try {
+    console.log('[ANALYZE] Step 1: Starting analysis request...');
     const body = await validateRequest(request, analysisRequestSchema);
+    console.log('[ANALYZE] Step 1: Request validated, params:', {
+      barcode: body.barcode,
+      productId: body.productId,
+      labelUploadId: body.labelUploadId,
+    });
 
     // Initialize services
     const baseUrl = process.env.OPEN_FOOD_FACTS_BASE_URL || 'https://world.openfoodfacts.org/api/v0';
@@ -114,10 +120,17 @@ export async function POST(request: NextRequest) {
     const reportService = new ReportService(scoringService, ingredientService);
 
     // Resolve product data
+    console.log('[ANALYZE] Step 2: Resolving product data...');
     let productData;
     try {
       productData = await resolveProductData(body, productService, productRepo);
+      console.log('[ANALYZE] Step 2: Product data resolved:', {
+        hasProduct: !!productData.product,
+        hasLabelData: !!productData.labelData,
+        hasExternalProduct: !!productData.externalProduct,
+      });
     } catch (error) {
+      console.error('[ANALYZE] Step 2: Failed to resolve product data:', error);
       if (error instanceof Error) {
         return Response.json(
           { error: 'Not found', message: error.message },
@@ -154,6 +167,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate report
+    console.log('[ANALYZE] Step 3: Generating report...');
+    const reportStartTime = Date.now();
     const report = await reportService.generateReport({
       product: productData.product || {
         id: 'temp',
@@ -176,7 +191,11 @@ export async function POST(request: NextRequest) {
     });
 
     // Validate response
+    console.log('[ANALYZE] Step 4: Validating report...');
     const validatedReport = labelWiseReportSchema.parse(report);
+    const reportDuration = Date.now() - reportStartTime;
+    console.log('[ANALYZE] Step 4: Report generated in', reportDuration, 'ms');
+    console.log('[ANALYZE] SUCCESS: Returning report with score:', validatedReport.score);
 
     return Response.json(validatedReport);
   } catch (error) {

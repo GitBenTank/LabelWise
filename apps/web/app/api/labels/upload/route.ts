@@ -101,7 +101,8 @@ export async function POST(request: NextRequest) {
 
     // Process with OCR
     // Use the buffer directly if we have it (Supabase upload), otherwise use the URL
-    console.log('[Upload] Starting OCR processing...');
+    console.log('[UPLOAD] Step 1: Starting OCR processing...');
+    console.log('[UPLOAD] Step 1: Image URL:', imageUrl.substring(0, 100));
     
     const ocrService = new TesseractOCRService();
     const repository = new DrizzleLabelRepository();
@@ -112,21 +113,28 @@ export async function POST(request: NextRequest) {
     if (process.env.SUPABASE_SERVICE_ROLE_KEY && buffer) {
       // Use buffer directly - more efficient than fetching from URL
       ocrInput = buffer;
-      console.log('[Upload] Using buffer directly for OCR');
+      console.log('[UPLOAD] Step 1: Using buffer directly for OCR (size:', buffer.length, 'bytes)');
     } else {
       // Use URL for local storage
       ocrInput = imageUrl;
-      console.log('[Upload] Using URL for OCR:', imageUrl.substring(0, 100) + '...');
+      console.log('[UPLOAD] Step 1: Using URL for OCR:', imageUrl.substring(0, 100) + '...');
     }
 
+    console.log('[UPLOAD] Step 2: Calling OCR service...');
     let result;
     try {
       // Extract text first
+      const ocrStartTime = Date.now();
       const { text, confidence } = await ocrService.extractText(ocrInput);
-      console.log('[Upload] OCR extracted text, length:', text.length, 'confidence:', confidence);
+      const ocrDuration = Date.now() - ocrStartTime;
+      console.log('[UPLOAD] Step 2: OCR completed in', ocrDuration, 'ms');
+      console.log('[UPLOAD] Step 2: Extracted text length:', text.length, 'confidence:', confidence);
       
       // Parse and store
+      console.log('[UPLOAD] Step 3: Parsing label text...');
       const parsed = labelService.parseLabelText(text);
+      console.log('[UPLOAD] Step 3: Parsed ingredients:', parsed.ingredients?.length || 0);
+      
       const nutritionRecord: Record<string, number | null> = {};
       if (parsed.nutrition) {
         Object.entries(parsed.nutrition).forEach(([key, value]) => {
@@ -134,6 +142,8 @@ export async function POST(request: NextRequest) {
         });
       }
       
+      console.log('[UPLOAD] Step 4: Storing label in database...');
+      const dbStartTime = Date.now();
       result = await repository.create({
         productId: productId || null,
         rawText: parsed.rawText || text,
@@ -144,16 +154,21 @@ export async function POST(request: NextRequest) {
         photoUrl: imageUrl,
         confidence: confidence >= 80 ? 'high' : confidence >= 50 ? 'medium' : 'low',
       });
+      const dbDuration = Date.now() - dbStartTime;
+      console.log('[UPLOAD] Step 4: Database write completed in', dbDuration, 'ms');
+      console.log('[UPLOAD] Step 4: Label stored, ID:', result.id);
       
-      console.log('[Upload] Label stored, ID:', result.id);
+      console.log('[UPLOAD] Step 5: Returning response...');
     } catch (ocrError) {
-      console.error('[Upload] OCR processing failed:', ocrError);
+      console.error('[UPLOAD] ERROR: OCR processing failed:', ocrError);
+      console.error('[UPLOAD] ERROR: Stack:', ocrError instanceof Error ? ocrError.stack : 'No stack');
       throw new Error(
         `OCR processing failed: ${ocrError instanceof Error ? ocrError.message : 'Unknown error'}. ` +
         `Please try again with a clearer image.`
       );
     }
 
+    console.log('[UPLOAD] SUCCESS: Returning response with label ID:', result.id);
     return Response.json({
       id: result.id,
       imageUrl,

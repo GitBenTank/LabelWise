@@ -28,7 +28,9 @@ export default function LabelAnalysisPage() {
       try {
         setLoading(true);
         setError(null);
+        console.log('[LabelPage] Starting analysis for label ID:', labelId);
         const result = await api.generateAnalysis({ labelUploadId: labelId });
+        console.log('[LabelPage] Analysis completed, score:', result.score);
         setReport(result);
         
         // Extract label confidence from sources
