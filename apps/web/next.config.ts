@@ -6,21 +6,20 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@labelwise/shared', '@labelwise/core', '@labelwise/db'],
   
   // Fix for Tesseract.js on serverless/Vercel
+  // Note: Tesseract.js has known issues on serverless platforms
+  // Consider using a cloud OCR service for production
   webpack: (config, { isServer }) => {
-    // Tesseract.js needs special handling for serverless environments
     if (isServer) {
-      // Ensure tesseract.js is properly resolved
+      // Try to properly bundle tesseract.js
       config.resolve.alias = {
         ...config.resolve.alias,
-        'tesseract.js': require.resolve('tesseract.js'),
       };
       
-      // Don't externalize tesseract.js - we need it bundled
-      // Remove it from externals if it's there
-      if (Array.isArray(config.externals)) {
-        config.externals = config.externals.filter(
-          (ext) => ext !== 'tesseract.js' && !(typeof ext === 'object' && ext && 'tesseract.js' in ext)
-        );
+      // Mark tesseract.js as external to avoid bundling issues
+      // This will require it to be available at runtime
+      config.externals = config.externals || [];
+      if (!config.externals.includes('tesseract.js')) {
+        config.externals.push('tesseract.js');
       }
     }
     
