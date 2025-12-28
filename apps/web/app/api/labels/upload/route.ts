@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
 
     // Use Supabase Storage if configured, otherwise use local file storage
     let imageUrl: string;
+    let buffer: Buffer | null = null;
     
     if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
       // Upload to Supabase Storage
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
 
       // Convert File to Buffer
       const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+      buffer = Buffer.from(arrayBuffer);
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from(bucket)
@@ -84,19 +85,13 @@ export async function POST(request: NextRequest) {
         throw new Error(`Failed to upload image: ${uploadError.message}`);
       }
 
-      // Get signed URL for private bucket (valid for 1 hour)
-      // Note: For private buckets, we need signed URLs instead of public URLs
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(fileName, 3600); // 1 hour expiry
+      // Store the object path for database storage
+      // For OCR, we'll use the buffer directly (already have it from upload)
+      // For display later, we'll generate signed URLs on-demand
+      imageUrl = `${bucket}/${fileName}`;
       
-      if (signedUrlError || !signedUrlData) {
-        // Fallback: if signed URL fails, use the object path
-        // The OCR service will need to handle this, or we can retry with public URL
-        throw new Error(`Failed to create signed URL: ${signedUrlError?.message || 'Unknown error'}`);
-      }
-      
-      imageUrl = signedUrlData.signedUrl;
+      // Note: We have the buffer already, so we can pass it directly to OCR
+      // instead of fetching from the signed URL. This is more efficient.
     } else {
       // Use local file storage for development
       const localStorage = new LocalFileStorage();
@@ -105,19 +100,52 @@ export async function POST(request: NextRequest) {
     }
 
     // Process with OCR
-    console.log('[Upload] Starting OCR processing for image:', imageUrl.substring(0, 100) + '...');
+    // Use the buffer directly if we have it (Supabase upload), otherwise use the URL
+    console.log('[Upload] Starting OCR processing...');
     
     const ocrService = new TesseractOCRService();
     const repository = new DrizzleLabelRepository();
     const labelService = new LabelService(ocrService, repository);
+    
+    // If we uploaded to Supabase, we already have the buffer - use it directly
+    let ocrInput: string | Buffer;
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY && buffer) {
+      // Use buffer directly - more efficient than fetching from URL
+      ocrInput = buffer;
+      console.log('[Upload] Using buffer directly for OCR');
+    } else {
+      // Use URL for local storage
+      ocrInput = imageUrl;
+      console.log('[Upload] Using URL for OCR:', imageUrl.substring(0, 100) + '...');
+    }
 
     let result;
     try {
-      result = await labelService.processLabelImage(
-        imageUrl,
-        productId || null
-      );
-      console.log('[Upload] OCR processing completed, label ID:', result.id);
+      // Extract text first
+      const { text, confidence } = await ocrService.extractText(ocrInput);
+      console.log('[Upload] OCR extracted text, length:', text.length, 'confidence:', confidence);
+      
+      // Parse and store
+      const parsed = labelService.parseLabelText(text);
+      const nutritionRecord: Record<string, number | null> = {};
+      if (parsed.nutrition) {
+        Object.entries(parsed.nutrition).forEach(([key, value]) => {
+          nutritionRecord[key] = value ?? null;
+        });
+      }
+      
+      result = await repository.create({
+        productId: productId || null,
+        rawText: parsed.rawText || text,
+        ingredients: parsed.ingredients || [],
+        nutrition: nutritionRecord,
+        allergenStatements: parsed.allergenStatements || [],
+        mayContain: parsed.mayContain || [],
+        photoUrl: imageUrl,
+        confidence: confidence >= 80 ? 'high' : confidence >= 50 ? 'medium' : 'low',
+      });
+      
+      console.log('[Upload] Label stored, ID:', result.id);
     } catch (ocrError) {
       console.error('[Upload] OCR processing failed:', ocrError);
       throw new Error(
