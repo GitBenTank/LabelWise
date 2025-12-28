@@ -38,17 +38,20 @@ export default function UploadPage() {
     setError(null);
 
     try {
+      console.log('[Upload] Starting upload for file:', file.name);
       const result = await api.uploadLabel(file);
+      console.log('[Upload] Upload successful, navigating to:', result.id);
       // Navigate to analysis page with the label upload ID
       router.push(`/products/label/${result.id}`);
     } catch (err) {
+      console.error('[Upload] Upload failed:', err);
       if (err instanceof ApiError) {
         setError(err.message);
       } else {
-        setError('Failed to upload label');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to upload label';
+        setError(errorMessage);
       }
-    } finally {
-      setLoading(false);
+      setLoading(false); // Only set loading to false on error, success navigates away
     }
   };
 

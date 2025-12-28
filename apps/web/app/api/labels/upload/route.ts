@@ -105,14 +105,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Process with OCR
+    console.log('[Upload] Starting OCR processing for image:', imageUrl.substring(0, 100) + '...');
+    
     const ocrService = new TesseractOCRService();
     const repository = new DrizzleLabelRepository();
     const labelService = new LabelService(ocrService, repository);
 
-    const result = await labelService.processLabelImage(
-      imageUrl,
-      productId || null
-    );
+    let result;
+    try {
+      result = await labelService.processLabelImage(
+        imageUrl,
+        productId || null
+      );
+      console.log('[Upload] OCR processing completed, label ID:', result.id);
+    } catch (ocrError) {
+      console.error('[Upload] OCR processing failed:', ocrError);
+      throw new Error(
+        `OCR processing failed: ${ocrError instanceof Error ? ocrError.message : 'Unknown error'}. ` +
+        `Please try again with a clearer image.`
+      );
+    }
 
     return Response.json({
       id: result.id,
